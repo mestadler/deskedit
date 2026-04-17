@@ -12,10 +12,7 @@ import (
 )
 
 func newModelForUXTests() *Model {
-	delegate := list.NewDefaultDelegate()
-	delegate.SetSpacing(0)
-	delegate.ShowDescription = false
-
+	delegate := newPlainDelegate()
 	m := &Model{}
 	m.ensureDefaults()
 	m.list = list.New(nil, delegate, 80, 24)

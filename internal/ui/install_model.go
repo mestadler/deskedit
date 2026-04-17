@@ -76,9 +76,7 @@ func (im *installModel) openBrowse(start string, width, height int) error {
 	if err != nil {
 		return err
 	}
-	delegate := list.NewDefaultDelegate()
-	delegate.SetSpacing(0)
-	delegate.ShowDescription = false
+	delegate := newPlainDelegate()
 	l := list.New(items, delegate, width-2, height-6)
 	l.Title = start
 	l.SetFilteringEnabled(true)

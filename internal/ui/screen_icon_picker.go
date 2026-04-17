@@ -13,9 +13,7 @@ func (m *Model) openIconPicker() {
 	for i, n := range names {
 		items[i] = iconItem(n)
 	}
-	delegate := list.NewDefaultDelegate()
-	delegate.SetSpacing(0)
-	delegate.ShowDescription = false
+	delegate := newPlainDelegate()
 	l := list.New(items, delegate, m.width-2, m.height-4)
 	l.Title = "Pick an icon"
 	l.SetFilteringEnabled(true)
@@ -25,8 +23,7 @@ func (m *Model) openIconPicker() {
 }
 
 func (m *Model) updateIconPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMatches(msg, m.keys.IconPicker.ToggleHelp) {
-		m.help.ShowAll = !m.help.ShowAll
+	if m.toggleHelpIfMatched(msg, m.keys.IconPicker.ToggleHelp) {
 		return m, nil
 	}
 

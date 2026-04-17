@@ -6,8 +6,7 @@ import (
 )
 
 func (m *Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMatches(msg, m.keys.List.ToggleHelp) {
-		m.help.ShowAll = !m.help.ShowAll
+	if m.toggleHelpIfMatched(msg, m.keys.List.ToggleHelp) {
 		return m, nil
 	}
 
