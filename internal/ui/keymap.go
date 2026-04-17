@@ -8,6 +8,8 @@ import (
 type globalKeyMap struct {
 	Quit           key.Binding
 	CommandPalette key.Binding
+	NextRegion     key.Binding
+	PrevRegion     key.Binding
 }
 
 type listKeyMap struct {
@@ -113,6 +115,8 @@ func defaultKeyMaps() keyMaps {
 		Global: globalKeyMap{
 			Quit:           key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
 			CommandPalette: key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "commands")),
+			NextRegion:     key.NewBinding(key.WithKeys("ctrl+tab"), key.WithHelp("ctrl+tab", "next region")),
+			PrevRegion:     key.NewBinding(key.WithKeys("ctrl+shift+tab"), key.WithHelp("ctrl+shift+tab", "prev region")),
 		},
 		List: listKeyMap{
 			Edit:       key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "edit")),

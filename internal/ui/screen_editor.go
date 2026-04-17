@@ -14,6 +14,7 @@ import (
 
 func (m *Model) openEditor(e desktop.Entry) error {
 	m.ensureDefaults()
+	m.regionFocus = regionBody
 
 	f, err := desktop.Load(e.Path)
 	if err != nil {
