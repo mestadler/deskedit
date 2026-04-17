@@ -81,12 +81,8 @@ func (m *Model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.focusPrev()
 		return m, nil
 	case keyMatches(msg, m.keys.Editor.Save):
-		if err := m.save(); err != nil {
-			m.err = err
-			return m, nil
-		}
-		m.screen = screenList
-		return m, m.refreshEntries()
+		m.requestSaveConfirm()
+		return m, nil
 	case keyMatches(msg, m.keys.Editor.IconPicker):
 		m.openIconPicker()
 		return m, nil

@@ -45,6 +45,11 @@ Editor:
 - `esc` discard and go back
 - `?` toggle expanded help
 
+Confirmations:
+- exiting the app requires confirmation (`Yes` / `No`, default `No`)
+- saving `.desktop` changes requires confirmation (`Yes` / `No`, default `No`)
+- in confirm modal: `left` / `right` / `tab` / `shift-tab` switch option, `enter` accepts selection, `esc` cancels (`No`)
+
 Footer actions:
 - when footer region is focused, `tab` / `shift-tab` cycle action chips
 - `enter` executes the selected footer action

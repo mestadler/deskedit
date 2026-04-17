@@ -60,6 +60,11 @@ func TestCommandPalette_ExecuteSaveAction(t *testing.T) {
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
 	selectPaletteCommand(t, m, "editor_save")
 	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !m.confirmActive || m.confirmKind != confirmSave {
+		t.Fatalf("expected save confirm modal after palette save action")
+	}
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab}) // Yes
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if m.screen != screenList {
 		t.Fatalf("screen = %v, want list", m.screen)
@@ -110,7 +115,9 @@ func TestCommandPalette_SaveActionParityWithCtrlS(t *testing.T) {
 		t.Fatalf("openEditor key path: %v", err)
 	}
 	byKey.inputs[fieldName].SetValue("Parity Name")
-	_, _ = byKey.updateEditor(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, _ = byKey.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, _ = byKey.Update(tea.KeyMsg{Type: tea.KeyTab}) // Yes
+	_, _ = byKey.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	byPalette := newModelForUXTests()
 	if err := byPalette.openEditor(desktop.Entry{Path: pathViaPalette, ID: "palette.desktop", Source: desktop.SourceUser}); err != nil {
@@ -119,6 +126,8 @@ func TestCommandPalette_SaveActionParityWithCtrlS(t *testing.T) {
 	byPalette.inputs[fieldName].SetValue("Parity Name")
 	_, _ = byPalette.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
 	selectPaletteCommand(t, byPalette, "editor_save")
+	_, _ = byPalette.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, _ = byPalette.Update(tea.KeyMsg{Type: tea.KeyTab}) // Yes
 	_, _ = byPalette.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if byKey.screen != byPalette.screen {

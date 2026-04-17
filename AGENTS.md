@@ -22,6 +22,8 @@
   - `go test ./internal/ui -run TestUpdate_HandlesEntriesRefreshedMsg`
   - `go test ./internal/ui -run TestRegionFocus_TraversalCyclesHeaderBodyFooter`
   - `go test ./internal/ui -run TestFooterRegion_SaveActionParityWithKeyAndPalette`
+  - `go test ./internal/ui -run TestSaveConfirm_YesWritesAndReturnsToList`
+  - `go test ./internal/ui -run TestExitConfirm_YesQuits`
 
 ## Lint/format behavior
 - `make lint` is intentionally strict: it fails if `gofmt -l .` returns any files, then runs `go vet ./...`.
@@ -40,6 +42,8 @@
 - Shell layout is intentionally framed into header/body/footer regions inside a stable outer frame; avoid reintroducing screen-specific layout jumps.
 - Region focus traversal uses `ctrl+tab`/`ctrl+shift+tab`; keep body-local `tab` behavior intact for form/navigation fields.
 - Footer primary bindings render as selectable chips; when footer is focused, `tab`/`shift+tab` cycle chips and `enter` executes the selected action via existing command paths.
+- Confirmation modal is a shared red-styled guardrail for destructive actions; keep options strictly `Yes`/`No`, default selection `No`, and `esc` mapped to `No`.
+- Exit and save flows are confirm-gated; preserve current behavior that only `Yes` executes quit/save while `No` leaves state unchanged.
 - Custom tea messages used by commands must always have matching `Update` handlers (notably list-refresh after save).
 - Keep `internal/ui` split by screen concerns (`screen_list.go`, `screen_editor.go`, `screen_icon_picker.go`, `screen_install.go`) rather than growing a single monolith file.
 
