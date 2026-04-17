@@ -160,3 +160,11 @@ func keyMatches(msg tea.KeyMsg, bindings ...key.Binding) bool {
 	}
 	return false
 }
+
+func (m *Model) toggleHelpIfMatched(msg tea.KeyMsg, binding key.Binding) bool {
+	if !key.Matches(msg, binding) {
+		return false
+	}
+	m.help.ShowAll = !m.help.ShowAll
+	return true
+}

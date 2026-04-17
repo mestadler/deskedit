@@ -19,8 +19,7 @@ func (m *Model) openInstallPath() {
 }
 
 func (m *Model) updateInstallPath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMatches(msg, m.keys.InstallPath.ToggleHelp) {
-		m.help.ShowAll = !m.help.ShowAll
+	if m.toggleHelpIfMatched(msg, m.keys.InstallPath.ToggleHelp) {
 		return m, nil
 	}
 
@@ -71,12 +70,7 @@ func (m *Model) viewInstallPath() string {
 		nameRow = activeBorder.Render(nameRow)
 	}
 
-	status := ""
-	if m.err != nil {
-		status = errorStyle.Render("error: " + m.err.Error())
-	} else if m.status != "" {
-		status = statusStyle.Render(m.status)
-	}
+	status := renderStatus(m.err, m.status)
 
 	return strings.Join([]string{
 		title,
@@ -98,8 +92,7 @@ func (m *Model) openInstallBrowse(start string) {
 }
 
 func (m *Model) updateInstallBrowse(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMatches(msg, m.keys.InstallBrowse.ToggleHelp) {
-		m.help.ShowAll = !m.help.ShowAll
+	if m.toggleHelpIfMatched(msg, m.keys.InstallBrowse.ToggleHelp) {
 		return m, nil
 	}
 

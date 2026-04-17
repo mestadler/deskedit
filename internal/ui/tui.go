@@ -139,10 +139,7 @@ func New() (*Model, error) {
 		return nil, err
 	}
 
-	delegate := list.NewDefaultDelegate()
-	delegate.SetSpacing(0)
-	delegate.ShowDescription = false
-
+	delegate := newPlainDelegate()
 	l := list.New(nil, delegate, 0, 0)
 	l.Title = "Desktop Entries"
 	l.SetShowStatusBar(true)
@@ -281,6 +278,16 @@ func formatBoolDesktop(v bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func renderStatus(err error, status string) string {
+	if err != nil {
+		return errorStyle.Render("error: " + err.Error())
+	}
+	if status != "" {
+		return statusStyle.Render(status)
+	}
+	return ""
 }
 
 func activePathForView(path string) string {

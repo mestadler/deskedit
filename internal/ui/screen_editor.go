@@ -63,8 +63,7 @@ func (m *Model) openEditor(e desktop.Entry) error {
 }
 
 func (m *Model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMatches(msg, m.keys.Editor.ToggleHelp) {
-		m.help.ShowAll = !m.help.ShowAll
+	if m.toggleHelpIfMatched(msg, m.keys.Editor.ToggleHelp) {
 		return m, nil
 	}
 
@@ -241,12 +240,7 @@ func (m *Model) viewEditor() string {
 		rows = append(rows, row)
 	}
 
-	status := ""
-	if m.err != nil {
-		status = errorStyle.Render("error: " + m.err.Error())
-	} else if m.status != "" {
-		status = statusStyle.Render(m.status)
-	}
+	status := renderStatus(m.err, m.status)
 
 	return strings.Join([]string{
 		title,
