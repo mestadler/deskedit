@@ -19,6 +19,7 @@
   - `go test ./internal/desktop -run TestDiscover`
   - `go test ./internal/ui -run TestSave_SystemEntryWritesUserOverride`
   - `go test ./internal/ui -run TestCtrlNOpensInstallBrowserFromHome`
+  - `go test ./internal/ui -run TestUpdate_HandlesEntriesRefreshedMsg`
 
 ## Lint/format behavior
 - `make lint` is intentionally strict: it fails if `gofmt -l .` returns any files, then runs `go vet ./...`.
@@ -33,6 +34,9 @@
 - GPU mode toggles must stay idempotent; use `gpu.Wrap`/`gpu.Unwrap` semantics instead of stacking prefixes manually.
 - NVIDIA env-prefix parsing must keep handling mixed-case var names (for `__VK_LAYER_NV_optimus`) so mode switches fully unwrap old prefixes.
 - Icon install flow is browser-first (`ctrl+n` opens browser at `$HOME`/last dir), then path+name confirmation form.
+- UI key handling is centralized via Bubble `key.Binding` maps and rendered with Bubble `help.Model`; keep bindings and help text in one source of truth.
+- Custom tea messages used by commands must always have matching `Update` handlers (notably list-refresh after save).
+- Keep `internal/ui` split by screen concerns (`screen_list.go`, `screen_editor.go`, `screen_icon_picker.go`, `screen_install.go`) rather than growing a single monolith file.
 
 ## Environment/side effects
 - Discovery and writes depend on XDG env vars (`XDG_DATA_HOME`, `XDG_DATA_DIRS`) with XDG defaults when unset.

@@ -30,6 +30,7 @@ List:
 - `enter` open selected entry
 - `/` filter by name or ID
 - `q` / `esc` quit
+- `?` toggle expanded help
 
 Editor:
 - `tab` / `shift-tab` switch fields
@@ -38,6 +39,7 @@ Editor:
 - `ctrl+s` save
 - `left` / `right` cycle GPU mode
 - `esc` discard and go back
+- `?` toggle expanded help
 
 Install icon flow:
 - select a file in browser, then confirm/edit icon name in form
@@ -46,6 +48,7 @@ Install icon flow:
 Browser screen:
 - `enter` open directory or select file
 - `esc` return to install form
+- `?` toggle expanded help
 
 ## Caveats
 
