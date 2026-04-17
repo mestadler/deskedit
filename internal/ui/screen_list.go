@@ -18,7 +18,8 @@ func (m *Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case keyMatches(msg, m.keys.List.Quit):
-		return m, tea.Quit
+		m.startConfirm(confirmExit, "Exit deskedit?")
+		return m, nil
 	case keyMatches(msg, m.keys.List.Edit):
 		sel, ok := m.list.SelectedItem().(listItem)
 		if !ok {

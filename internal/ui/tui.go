@@ -70,13 +70,30 @@ var (
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true)
-	badgeUser   = lipgloss.NewStyle().Foreground(lipgloss.Color("40")).Render("[user]")
-	badgeSystem = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("[system]")
+	badgeUser       = lipgloss.NewStyle().Foreground(lipgloss.Color("40")).Render("[user]")
+	badgeSystem     = lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("[system]")
+	confirmBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("196")).
+			Padding(0, 1)
+	confirmTitleStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("196")).
+				Bold(true)
+	confirmOptionStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("252"))
+	confirmOptionFocusedStyle = lipgloss.NewStyle().
+					Foreground(lipgloss.Color("196")).
+					Bold(true).
+					Underline(true)
 )
 
 type screen int
 
 type regionFocus int
+
+type confirmKind string
+
+type confirmChoice int
 
 const (
 	screenList screen = iota
@@ -91,6 +108,16 @@ const (
 	regionHeader regionFocus = iota
 	regionBody
 	regionFooter
+)
+
+const (
+	confirmExit confirmKind = "exit"
+	confirmSave confirmKind = "save"
+)
+
+const (
+	confirmYes confirmChoice = iota
+	confirmNo
 )
 
 type listItem struct{ desktop.Entry }
@@ -172,6 +199,14 @@ type Model struct {
 	status string
 	err    error
 
+	confirmActive      bool
+	confirmKind        confirmKind
+	confirmPrompt      string
+	confirmSelection   confirmChoice
+	confirmResolved    bool
+	confirmAccepted    bool
+	saveConfirmPending bool
+
 	width, height int
 }
 
@@ -250,8 +285,37 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyLayoutSizing(msg.Width, msg.Height)
 		return m, nil
 	case tea.KeyMsg:
+		if m.confirmActive {
+			model, cmd := m.updateConfirm(msg)
+			if m.confirmResolved {
+				kind := m.confirmKind
+				accepted := m.confirmAccepted
+				m.confirmResolved = false
+				m.confirmAccepted = false
+
+				switch kind {
+				case confirmExit:
+					if accepted {
+						return m, tea.Quit
+					}
+				case confirmSave:
+					if accepted && m.saveConfirmPending {
+						m.saveConfirmPending = false
+						if err := m.save(); err != nil {
+							m.err = err
+							return m, nil
+						}
+						m.screen = screenList
+						return m, m.refreshEntries()
+					}
+					m.saveConfirmPending = false
+				}
+			}
+			return model, cmd
+		}
 		if keyMatches(msg, m.keys.Global.Quit) {
-			return m, tea.Quit
+			m.startConfirm(confirmExit, "Exit deskedit?")
+			return m, nil
 		}
 		if keyMatches(msg, m.keys.Global.NextRegion) || isCtrlTab(msg) {
 			m.focusNextRegion()
@@ -368,8 +432,11 @@ func (m *Model) renderLayout(title, body, expandedHelp, commandBar string) strin
 	bodyPanel := bodyStyle.Width(innerW - bodyStyle.GetHorizontalFrameSize()).Height(bodyContentH - bodyStyle.GetVerticalFrameSize()).Render(strings.Join(bodyParts, "\n"))
 	footer := footerStyle.Width(innerW - footerStyle.GetHorizontalFrameSize()).Render(commandBarStyle.Render(commandBar))
 
-	content := lipgloss.JoinVertical(lipgloss.Top, header, bodyPanel, footer)
-	return appFrameStyle.Render(content)
+	content := appFrameStyle.Render(lipgloss.JoinVertical(lipgloss.Top, header, bodyPanel, footer))
+	if m.confirmActive {
+		return lipgloss.JoinVertical(lipgloss.Top, content, "", m.renderConfirmModal())
+	}
+	return content
 }
 
 func (m *Model) screenTitle() string {
@@ -775,6 +842,83 @@ func renderStatus(err error, status string) string {
 		return statusStyle.Render(status)
 	}
 	return ""
+}
+
+func (m *Model) startConfirm(kind confirmKind, prompt string) {
+	m.confirmActive = true
+	m.confirmKind = kind
+	m.confirmPrompt = strings.TrimSpace(prompt)
+	m.confirmSelection = confirmNo
+	m.confirmResolved = false
+	m.confirmAccepted = false
+}
+
+func (m *Model) requestSaveConfirm() {
+	m.saveConfirmPending = true
+	m.startConfirm(confirmSave, "Save changes to this .desktop entry?")
+}
+
+func (m *Model) updateConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if !m.confirmActive {
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "left", "shift+tab", "tab", "right":
+		if m.confirmSelection == confirmNo {
+			m.confirmSelection = confirmYes
+		} else {
+			m.confirmSelection = confirmNo
+		}
+		return m, nil
+	case "enter":
+		m.resolveConfirm(m.confirmSelection == confirmYes)
+		return m, nil
+	case "esc":
+		m.resolveConfirm(false)
+		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+func (m *Model) resolveConfirm(accepted bool) {
+	m.confirmActive = false
+	m.confirmResolved = true
+	m.confirmAccepted = accepted
+}
+
+func (m *Model) renderConfirmModal() string {
+	title := "Confirm"
+	if m.confirmKind != "" {
+		title = "Confirm " + strings.Title(string(m.confirmKind))
+	}
+	prompt := m.confirmPrompt
+	if prompt == "" {
+		prompt = "Please confirm"
+	}
+
+	yes := confirmOptionStyle.Render("[Yes]")
+	no := confirmOptionStyle.Render("[No]")
+	if m.confirmSelection == confirmYes {
+		yes = confirmOptionFocusedStyle.Render("[Yes]")
+	} else {
+		no = confirmOptionFocusedStyle.Render("[No]")
+	}
+
+	content := strings.Join([]string{
+		confirmTitleStyle.Render(title),
+		prompt,
+		yes + "  " + no,
+		hintStyle.Render("enter: confirm   esc: cancel"),
+	}, "\n")
+
+	availW, _ := m.layoutViewport()
+	modal := confirmBoxStyle.Render(content)
+	if availW > 0 {
+		return lipgloss.PlaceHorizontal(availW, lipgloss.Center, modal)
+	}
+	return modal
 }
 
 func activePathForView(path string) string {
