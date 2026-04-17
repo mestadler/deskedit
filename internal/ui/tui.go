@@ -112,12 +112,7 @@ type Model struct {
 
 	iconPicker list.Model
 
-	installPathInput textinput.Model
-	installNameInput textinput.Model
-	installFocus     int
-	browser          list.Model
-	browserCWD       string
-	lastBrowseDir    string
+	install installModel
 
 	keys keyMaps
 	help help.Model
@@ -180,7 +175,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		m.inputs[fieldIcon].SetValue(m.installNameInput.Value())
+		m.inputs[fieldIcon].SetValue(m.install.nameInput.Value())
 		m.screen = screenEditor
 		note := fmt.Sprintf("installed: %s", msg.res.InstalledPath)
 		if msg.res.Resized {
@@ -206,8 +201,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.iconPicker.Items() != nil {
 			m.iconPicker.SetSize(msg.Width-2, msg.Height-4)
 		}
-		if m.browser.Items() != nil {
-			m.browser.SetSize(msg.Width-2, msg.Height-6)
+		if m.install.browser.Items() != nil {
+			m.install.browser.SetSize(msg.Width-2, msg.Height-6)
 		}
 		return m, nil
 	case tea.KeyMsg:
@@ -235,7 +230,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screenIconPicker:
 		m.iconPicker, cmd = m.iconPicker.Update(msg)
 	case screenInstallBrowse:
-		m.browser, cmd = m.browser.Update(msg)
+		m.install.browser, cmd = m.install.browser.Update(msg)
 	}
 	return m, cmd
 }
@@ -251,8 +246,8 @@ func (m *Model) View() string {
 	case screenInstallPath:
 		return m.viewInstallPath()
 	case screenInstallBrowse:
-		title := titleStyle.Render("Browse: " + m.browserCWD)
-		return title + "\n" + m.browser.View() + "\n" + m.help.View(m.keys.InstallBrowse)
+		title := titleStyle.Render("Browse: " + m.install.browserCWD)
+		return title + "\n" + m.install.browser.View() + "\n" + m.help.View(m.keys.InstallBrowse)
 	}
 	return ""
 }
