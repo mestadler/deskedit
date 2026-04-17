@@ -22,15 +22,29 @@ var (
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Padding(0, 1)
-	chromeTitleStyle = lipgloss.NewStyle().
+	headerFrameStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("63")).
+				Padding(0, 1)
+	headerTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("230")).
-				Background(lipgloss.Color("62")).
+				Foreground(lipgloss.Color("230"))
+	bodyFrameStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Padding(0, 1)
+	footerFrameStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("63")).
 				Padding(0, 1)
 	commandBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			Background(lipgloss.Color("236")).
-			Padding(0, 1)
+			Foreground(lipgloss.Color("252"))
+	footerChipStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
+	footerChipFocusedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("230")).
+				Bold(true).
+				Underline(true)
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("205")).
@@ -62,6 +76,8 @@ var (
 
 type screen int
 
+type regionFocus int
+
 const (
 	screenList screen = iota
 	screenEditor
@@ -69,6 +85,12 @@ const (
 	screenInstallPath
 	screenInstallBrowse
 	screenCommandPalette
+)
+
+const (
+	regionHeader regionFocus = iota
+	regionBody
+	regionFooter
 )
 
 type listItem struct{ desktop.Entry }
@@ -141,6 +163,8 @@ type Model struct {
 
 	commandPalette list.Model
 	paletteReturn  screen
+	regionFocus    regionFocus
+	footerAction   int
 
 	keys keyMaps
 	help help.Model
@@ -177,12 +201,13 @@ func New() (*Model, error) {
 	h.ShowAll = false
 
 	m := &Model{
-		screen:  screenList,
-		entries: entries,
-		list:    l,
-		gpuCaps: gpu.Detect(),
-		keys:    defaultKeyMaps(),
-		help:    h,
+		screen:      screenList,
+		entries:     entries,
+		list:        l,
+		gpuCaps:     gpu.Detect(),
+		keys:        defaultKeyMaps(),
+		help:        h,
+		regionFocus: regionBody,
 	}
 	m.setEntries(entries)
 	return m, nil
@@ -222,24 +247,38 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.list.SetSize(msg.Width-2, msg.Height-4)
-		if m.iconPicker.Items() != nil {
-			m.iconPicker.SetSize(msg.Width-2, msg.Height-4)
-		}
-		if m.install.browser.Items() != nil {
-			m.install.browser.SetSize(msg.Width-2, msg.Height-6)
-		}
+		m.applyLayoutSizing(msg.Width, msg.Height)
 		return m, nil
 	case tea.KeyMsg:
 		if keyMatches(msg, m.keys.Global.Quit) {
 			return m, tea.Quit
 		}
+		if keyMatches(msg, m.keys.Global.NextRegion) || isCtrlTab(msg) {
+			m.focusNextRegion()
+			return m, nil
+		}
+		if keyMatches(msg, m.keys.Global.PrevRegion) || isCtrlShiftTab(msg) {
+			m.focusPrevRegion()
+			return m, nil
+		}
 		if keyMatches(msg, m.keys.Global.CommandPalette) {
 			if m.screen == screenCommandPalette {
 				m.screen = m.paletteReturn
+				m.regionFocus = regionBody
 				return m, nil
 			}
 			m.openCommandPalette(m.screen)
+			return m, nil
+		}
+		if m.regionFocus != regionBody {
+			if m.regionFocus == regionFooter {
+				if handled, model, cmd := m.updateFooterRegion(msg); handled {
+					return model, cmd
+				}
+			}
+			if msg.String() == "esc" {
+				m.regionFocus = regionBody
+			}
 			return m, nil
 		}
 		switch m.screen {
@@ -295,41 +334,63 @@ func (m *Model) View() string {
 }
 
 func (m *Model) renderLayout(title, body, expandedHelp, commandBar string) string {
-	status := renderStatus(m.err, m.status)
-	parts := []string{
-		chromeTitleStyle.Render(title),
-		body,
+	availW, availH := m.layoutViewport()
+	innerW := maxInt(1, availW-appFrameStyle.GetHorizontalFrameSize())
+	innerH := maxInt(1, availH-appFrameStyle.GetVerticalFrameSize())
+
+	headFrameH := 1 + headerFrameStyle.GetVerticalFrameSize()
+	if strings.TrimSpace(title) != "" {
+		headFrameH++
 	}
+	footFrameH := 1 + footerFrameStyle.GetVerticalFrameSize()
+	bodyContentH := maxInt(3, innerH-headFrameH-footFrameH)
+
+	status := renderStatus(m.err, m.status)
+	bodyParts := []string{body}
 	if expandedHelp != "" {
-		parts = append(parts, expandedHelp)
+		bodyParts = append(bodyParts, expandedHelp)
 	}
 	if status != "" {
-		parts = append(parts, status)
+		bodyParts = append(bodyParts, status)
 	}
-	parts = append(parts, commandBarStyle.Render(commandBar))
-	content := strings.Join(parts, "\n")
+
+	headerWidth := innerW - headerFrameStyle.GetHorizontalFrameSize()
+	headerLines := []string{lipgloss.PlaceHorizontal(headerWidth, lipgloss.Center, headerTitleStyle.Render("deskedit"))}
+	if strings.TrimSpace(title) != "" {
+		headerLines = append(headerLines, lipgloss.PlaceHorizontal(headerWidth, lipgloss.Center, hintStyle.Render(title)))
+	}
+	headerText := strings.Join(headerLines, "\n")
+	headerStyle := focusedFrameStyle(headerFrameStyle, m.regionFocus == regionHeader)
+	bodyStyle := focusedFrameStyle(bodyFrameStyle, m.regionFocus == regionBody)
+	footerStyle := focusedFrameStyle(footerFrameStyle, m.regionFocus == regionFooter)
+
+	header := headerStyle.Width(innerW - headerStyle.GetHorizontalFrameSize()).Render(headerText)
+	bodyPanel := bodyStyle.Width(innerW - bodyStyle.GetHorizontalFrameSize()).Height(bodyContentH - bodyStyle.GetVerticalFrameSize()).Render(strings.Join(bodyParts, "\n"))
+	footer := footerStyle.Width(innerW - footerStyle.GetHorizontalFrameSize()).Render(commandBarStyle.Render(commandBar))
+
+	content := lipgloss.JoinVertical(lipgloss.Top, header, bodyPanel, footer)
 	return appFrameStyle.Render(content)
 }
 
 func (m *Model) screenTitle() string {
 	switch m.screen {
 	case screenList:
-		return "deskedit  -  Desktop Entries"
+		return "Desktop Entries"
 	case screenEditor:
 		if m.current != nil {
-			return "deskedit  -  Editing " + activePathForView(m.current.Path)
+			return "Editing " + activePathForView(m.current.Path)
 		}
-		return "deskedit  -  Editor"
+		return "Editor"
 	case screenIconPicker:
-		return "deskedit  -  Pick Icon"
+		return "Pick Icon"
 	case screenInstallPath:
-		return "deskedit  -  Install Icon"
+		return "Install Icon"
 	case screenInstallBrowse:
-		return "deskedit  -  Browse Files: " + m.install.browserCWD
+		return "Browse Files: " + m.install.browserCWD
 	case screenCommandPalette:
-		return "deskedit  -  Command Palette"
+		return "Command Palette"
 	default:
-		return "deskedit"
+		return ""
 	}
 }
 
@@ -359,33 +420,79 @@ func (m *Model) expandedHelp() string {
 }
 
 func (m *Model) primaryCommandBar() string {
-	bindings := m.primaryBindings()
-	parts := make([]string, 0, len(bindings))
-	for _, b := range bindings {
-		h := b.Help()
+	actions := m.footerActionsFor(m.screen)
+	parts := make([]string, 0, len(actions))
+	for i, a := range actions {
+		h := a.binding.Help()
 		if strings.TrimSpace(h.Key) == "" || strings.TrimSpace(h.Desc) == "" {
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("%s %s", h.Key, h.Desc))
+		label := fmt.Sprintf("[%s %s]", h.Key, h.Desc)
+		style := footerChipStyle
+		if m.regionFocus == regionFooter && i == m.footerAction {
+			style = footerChipFocusedStyle
+		}
+		parts = append(parts, style.Render(label))
 	}
 	return strings.Join(parts, "   ")
 }
 
-func (m *Model) primaryBindings() []key.Binding {
-	global := []key.Binding{m.keys.Global.CommandPalette}
+type footerAction struct {
+	binding key.Binding
+	id      string
+}
+
+func (m *Model) footerActionsFor(sc screen) []footerAction {
+	global := []footerAction{
+		{binding: m.keys.Global.CommandPalette, id: "global_palette"},
+		{binding: m.keys.Global.NextRegion, id: "global_next_region"},
+		{binding: m.keys.Global.PrevRegion, id: "global_prev_region"},
+	}
+
 	switch m.screen {
 	case screenList:
-		return append(global, m.keys.List.ShortHelp()...)
+		return append(global,
+			footerAction{binding: m.keys.List.Edit, id: "list_edit"},
+			footerAction{binding: m.keys.List.Filter, id: "list_filter"},
+			footerAction{binding: m.keys.List.Quit, id: "list_quit"},
+			footerAction{binding: m.keys.List.ToggleHelp, id: "help_toggle"},
+		)
 	case screenEditor:
-		return append(global, m.keys.Editor.ShortHelp()...)
+		return append(global,
+			footerAction{binding: m.keys.Editor.Save, id: "editor_save"},
+			footerAction{binding: m.keys.Editor.IconPicker, id: "editor_icon_picker"},
+			footerAction{binding: m.keys.Editor.InstallIcon, id: "editor_install_icon"},
+			footerAction{binding: m.keys.Editor.Cancel, id: "editor_cancel"},
+			footerAction{binding: m.keys.Editor.ToggleHelp, id: "help_toggle"},
+		)
 	case screenIconPicker:
-		return append(global, m.keys.IconPicker.ShortHelp()...)
+		return append(global,
+			footerAction{binding: m.keys.IconPicker.Accept, id: "picker_accept"},
+			footerAction{binding: m.keys.IconPicker.Cancel, id: "picker_cancel"},
+			footerAction{binding: m.keys.IconPicker.Filter, id: "picker_filter"},
+			footerAction{binding: m.keys.IconPicker.ToggleHelp, id: "help_toggle"},
+		)
 	case screenInstallPath:
-		return append(global, m.keys.InstallPath.ShortHelp()...)
+		return append(global,
+			footerAction{binding: m.keys.InstallPath.Install, id: "install_submit"},
+			footerAction{binding: m.keys.InstallPath.Browse, id: "install_browse"},
+			footerAction{binding: m.keys.InstallPath.Cancel, id: "install_cancel"},
+			footerAction{binding: m.keys.InstallPath.ToggleHelp, id: "help_toggle"},
+		)
 	case screenInstallBrowse:
-		return append(global, m.keys.InstallBrowse.ShortHelp()...)
+		return append(global,
+			footerAction{binding: m.keys.InstallBrowse.OpenSelect, id: "browse_open"},
+			footerAction{binding: m.keys.InstallBrowse.Back, id: "browse_back"},
+			footerAction{binding: m.keys.InstallBrowse.Filter, id: "browse_filter"},
+			footerAction{binding: m.keys.InstallBrowse.ToggleHelp, id: "help_toggle"},
+		)
 	case screenCommandPalette:
-		return m.keys.Palette.ShortHelp()
+		return []footerAction{
+			{binding: m.keys.Palette.Accept, id: "palette_run"},
+			{binding: m.keys.Palette.Cancel, id: "palette_cancel"},
+			{binding: m.keys.Palette.Filter, id: "palette_filter"},
+			{binding: m.keys.Palette.ToggleHelp, id: "help_toggle"},
+		}
 	default:
 		return global
 	}
@@ -411,6 +518,7 @@ func (m *Model) openCommandPalette(from screen) {
 	m.commandPalette = l
 	m.paletteReturn = from
 	m.screen = screenCommandPalette
+	m.regionFocus = regionBody
 	m.err = nil
 }
 
@@ -464,6 +572,21 @@ func (m *Model) executeCommand(id string, target screen) (tea.Model, tea.Cmd) {
 	m.screen = target
 
 	switch id {
+	case "global_palette":
+		m.openCommandPalette(target)
+		return m, nil
+	case "global_next_region":
+		m.focusNextRegion()
+		return m, nil
+	case "global_prev_region":
+		m.focusPrevRegion()
+		return m, nil
+	case "palette_run":
+		return m.updateCommandPalette(tea.KeyMsg{Type: tea.KeyEnter})
+	case "palette_cancel":
+		return m.updateCommandPalette(tea.KeyMsg{Type: tea.KeyEsc})
+	case "palette_filter":
+		return m.updateCommandPalette(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	case "help_toggle":
 		m.help.ShowAll = !m.help.ShowAll
 		return m, nil
@@ -530,6 +653,107 @@ func (m *Model) ensureDefaults() {
 		h.ShowAll = false
 		m.help = h
 	}
+	if m.regionFocus < regionHeader || m.regionFocus > regionFooter {
+		m.regionFocus = regionBody
+	}
+}
+
+func (m *Model) layoutViewport() (int, int) {
+	if m.width > 0 && m.height > 0 {
+		return m.width, m.height
+	}
+	return 100, 30
+}
+
+func (m *Model) bodyPanelSize(totalW, totalH int) (int, int) {
+	innerW := maxInt(1, totalW-appFrameStyle.GetHorizontalFrameSize())
+	innerH := maxInt(1, totalH-appFrameStyle.GetVerticalFrameSize())
+	headFrameH := 1 + headerFrameStyle.GetVerticalFrameSize()
+	if strings.TrimSpace(m.screenTitle()) != "" {
+		headFrameH++
+	}
+	footFrameH := 1 + footerFrameStyle.GetVerticalFrameSize()
+	bodyContentH := maxInt(3, innerH-headFrameH-footFrameH)
+	bodyW := maxInt(5, innerW-bodyFrameStyle.GetHorizontalFrameSize())
+	bodyH := maxInt(3, bodyContentH-bodyFrameStyle.GetVerticalFrameSize())
+	return bodyW, bodyH
+}
+
+func (m *Model) applyLayoutSizing(totalW, totalH int) {
+	bodyW, bodyH := m.bodyPanelSize(totalW, totalH)
+	m.list.SetSize(bodyW, bodyH)
+	if m.iconPicker.Items() != nil {
+		m.iconPicker.SetSize(bodyW, bodyH)
+	}
+	if m.install.browser.Items() != nil {
+		m.install.browser.SetSize(bodyW, bodyH)
+	}
+	if m.commandPalette.Items() != nil {
+		m.commandPalette.SetSize(bodyW, bodyH)
+	}
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (m *Model) updateFooterRegion(msg tea.KeyMsg) (bool, tea.Model, tea.Cmd) {
+	actions := m.footerActionsFor(m.screen)
+	if len(actions) == 0 {
+		return false, m, nil
+	}
+	if m.footerAction < 0 || m.footerAction >= len(actions) {
+		m.footerAction = 0
+	}
+
+	switch msg.String() {
+	case "tab":
+		m.footerAction = (m.footerAction + 1) % len(actions)
+		return true, m, nil
+	case "shift+tab":
+		m.footerAction = (m.footerAction - 1 + len(actions)) % len(actions)
+		return true, m, nil
+	case "enter":
+		selected := actions[m.footerAction]
+		m.regionFocus = regionBody
+		model, cmd := m.executeCommand(selected.id, m.screen)
+		return true, model, cmd
+	default:
+		return false, m, nil
+	}
+}
+
+func focusedFrameStyle(base lipgloss.Style, focused bool) lipgloss.Style {
+	if !focused {
+		return base
+	}
+	return base.BorderForeground(lipgloss.Color("205"))
+}
+
+func (m *Model) focusNextRegion() {
+	m.regionFocus = (m.regionFocus + 1) % 3
+	if m.regionFocus == regionFooter {
+		m.footerAction = 0
+	}
+}
+
+func (m *Model) focusPrevRegion() {
+	m.regionFocus = (m.regionFocus - 1 + 3) % 3
+	if m.regionFocus == regionFooter {
+		m.footerAction = 0
+	}
+}
+
+func isCtrlTab(msg tea.KeyMsg) bool {
+	return msg.String() == "ctrl+tab"
+}
+
+func isCtrlShiftTab(msg tea.KeyMsg) bool {
+	s := msg.String()
+	return s == "ctrl+shift+tab" || s == "shift+ctrl+tab"
 }
 
 func parseBoolDesktop(v string) bool {

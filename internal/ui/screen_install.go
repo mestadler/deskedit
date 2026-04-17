@@ -12,6 +12,7 @@ import (
 
 func (m *Model) openInstallPath() {
 	m.ensureDefaults()
+	m.regionFocus = regionBody
 	m.install.resetForm()
 	m.screen = screenInstallPath
 	m.err = nil
