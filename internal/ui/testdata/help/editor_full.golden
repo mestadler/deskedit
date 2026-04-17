@@ -1,0 +1,4 @@
+tab/down     next field    ctrl+i icon picker            ←/→/space toggle bool   
+shift+tab/up prev field    ctrl+n browse/install icon    ←/→/space cycle GPU mode
+ctrl+s       save          enter  open icon picker       ?         toggle help   
+esc          cancel                                                              
