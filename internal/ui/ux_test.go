@@ -121,7 +121,7 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 	for _, sz := range sizes {
 		t.Run(sz.name+"_list", func(t *testing.T) {
 			m := newModelForUXTests()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter edit")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "┌", "deskedit", "ctrl+k commands", "enter edit")
 		})
 
 		t.Run(sz.name+"_editor", func(t *testing.T) {
@@ -131,19 +131,19 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 			if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
 				t.Fatalf("openEditor: %v", err)
 			}
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "ctrl+s save")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "┌", "deskedit", "ctrl+k commands", "ctrl+s save")
 		})
 
 		t.Run(sz.name+"_icon_picker", func(t *testing.T) {
 			m := newModelForUXTests()
 			m.openIconPicker()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter accept")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "┌", "deskedit", "ctrl+k commands", "enter accept")
 		})
 
 		t.Run(sz.name+"_install_path", func(t *testing.T) {
 			m := newModelForUXTests()
 			m.openInstallPath()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter install/browse")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "┌", "deskedit", "ctrl+k commands", "enter install/browse")
 		})
 
 		t.Run(sz.name+"_install_browse", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 			m := newModelForUXTests()
 			m.openInstallPath()
 			m.openInstallBrowse(home)
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter open/select")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "┌", "deskedit", "ctrl+k commands", "enter open/select")
 		})
 	}
 }
@@ -167,21 +167,21 @@ func TestLayoutChrome_TitleBarVisibleAcrossScreens(t *testing.T) {
 	m := newModelForUXTests()
 	m.setEntries([]desktop.Entry{{Path: path, ID: "app.desktop", Name: "App", Source: desktop.SourceUser}})
 	m.openIconPicker()
-	assertViewContains(t, m, "deskedit")
+	assertViewContains(t, m, "┌", "deskedit")
 
 	if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
 		t.Fatalf("openEditor: %v", err)
 	}
-	assertViewContains(t, m, "deskedit")
+	assertViewContains(t, m, "┌", "deskedit")
 
 	m.openInstallPath()
-	assertViewContains(t, m, "deskedit")
+	assertViewContains(t, m, "┌", "deskedit")
 
 	m.openInstallBrowse(home)
-	assertViewContains(t, m, "deskedit")
+	assertViewContains(t, m, "┌", "deskedit")
 
 	m.screen = screenList
-	assertViewContains(t, m, "deskedit")
+	assertViewContains(t, m, "┌", "deskedit")
 }
 
 func TestPrimaryCommandBar_ShowsExpectedBindingsByScreen(t *testing.T) {

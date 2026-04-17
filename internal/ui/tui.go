@@ -18,6 +18,10 @@ import (
 )
 
 var (
+	appFrameStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Padding(0, 1)
 	chromeTitleStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("230")).
@@ -303,7 +307,8 @@ func (m *Model) renderLayout(title, body, expandedHelp, commandBar string) strin
 		parts = append(parts, status)
 	}
 	parts = append(parts, commandBarStyle.Render(commandBar))
-	return strings.Join(parts, "\n")
+	content := strings.Join(parts, "\n")
+	return appFrameStyle.Render(content)
 }
 
 func (m *Model) screenTitle() string {
