@@ -6,7 +6,8 @@ import (
 )
 
 type globalKeyMap struct {
-	Quit key.Binding
+	Quit           key.Binding
+	CommandPalette key.Binding
 }
 
 type listKeyMap struct {
@@ -103,13 +104,15 @@ type keyMaps struct {
 	IconPicker    iconPickerKeyMap
 	InstallPath   installPathKeyMap
 	InstallBrowse installBrowseKeyMap
+	Palette       iconPickerKeyMap
 }
 
 func defaultKeyMaps() keyMaps {
 	toggleHelp := key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help"))
 	return keyMaps{
 		Global: globalKeyMap{
-			Quit: key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+			Quit:           key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit")),
+			CommandPalette: key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "commands")),
 		},
 		List: listKeyMap{
 			Edit:       key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "edit")),
@@ -146,6 +149,12 @@ func defaultKeyMaps() keyMaps {
 		InstallBrowse: installBrowseKeyMap{
 			OpenSelect: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open/select")),
 			Back:       key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
+			Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
+			ToggleHelp: toggleHelp,
+		},
+		Palette: iconPickerKeyMap{
+			Accept:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "run")),
+			Cancel:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
 			Filter:     key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 			ToggleHelp: toggleHelp,
 		},
