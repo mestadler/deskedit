@@ -92,7 +92,7 @@ func (m *Model) updateEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case keyMatches(msg, m.keys.Editor.InstallIcon):
 		m.openInstallPath()
-		m.openInstallBrowse(m.installBrowseStartDir())
+		m.openInstallBrowse(m.install.browseStartDir())
 		return m, nil
 	}
 

@@ -27,8 +27,8 @@ func TestCtrlNOpensInstallBrowserFromHome(t *testing.T) {
 	if m.screen != screenInstallBrowse {
 		t.Fatalf("screen = %v, want install browse", m.screen)
 	}
-	if m.browserCWD != home {
-		t.Fatalf("browserCWD = %q, want %q", m.browserCWD, home)
+	if m.install.browserCWD != home {
+		t.Fatalf("browserCWD = %q, want %q", m.install.browserCWD, home)
 	}
 }
 
@@ -57,13 +57,13 @@ func TestInstallBrowseSelectionPrefillsPathAndName(t *testing.T) {
 	if m.screen != screenInstallPath {
 		t.Fatalf("screen = %v, want install path", m.screen)
 	}
-	if got := m.installPathInput.Value(); got != iconPath {
+	if got := m.install.pathInput.Value(); got != iconPath {
 		t.Fatalf("install path = %q, want %q", got, iconPath)
 	}
-	if got := m.installNameInput.Value(); got != "logo" {
+	if got := m.install.nameInput.Value(); got != "logo" {
 		t.Fatalf("install name = %q, want %q", got, "logo")
 	}
-	if got := m.lastBrowseDir; got != home {
+	if got := m.install.lastBrowseDir; got != home {
 		t.Fatalf("lastBrowseDir = %q, want %q", got, home)
 	}
 }
@@ -83,8 +83,8 @@ func TestInstallPathEnterWithEmptySourceOpensBrowser(t *testing.T) {
 	if m.screen != screenInstallBrowse {
 		t.Fatalf("screen = %v, want install browse", m.screen)
 	}
-	if m.browserCWD != home {
-		t.Fatalf("browserCWD = %q, want %q", m.browserCWD, home)
+	if m.install.browserCWD != home {
+		t.Fatalf("browserCWD = %q, want %q", m.install.browserCWD, home)
 	}
 	if m.err != nil {
 		t.Fatalf("unexpected error: %v", m.err)
