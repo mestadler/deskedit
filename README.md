@@ -43,6 +43,10 @@ Install icon flow:
 - select a file in browser, then confirm/edit icon name in form
 - `ctrl+b` re-open browser from form
 
+Browser screen:
+- `enter` open directory or select file
+- `esc` return to install form
+
 ## Caveats
 
 - Only `[Desktop Entry]` keys are editable.
