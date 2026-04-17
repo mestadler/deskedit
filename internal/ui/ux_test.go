@@ -110,3 +110,93 @@ func TestInstallBrowse_EscReturnsToForm(t *testing.T) {
 		t.Fatalf("screen = %v, want install path", m.screen)
 	}
 }
+
+func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
+	sizes := []struct {
+		name   string
+		width  int
+		height int
+	}{
+		{name: "40x12", width: 40, height: 12},
+		{name: "60x16", width: 60, height: 16},
+	}
+
+	for _, sz := range sizes {
+		t.Run(sz.name+"_list", func(t *testing.T) {
+			m := newModelForUXTests()
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "edit")
+		})
+
+		t.Run(sz.name+"_editor", func(t *testing.T) {
+			path := t.TempDir() + "/applications/app.desktop"
+			writeDesktopEntryFile(t, path, "[Desktop Entry]\nName=App\nExec=app\n")
+			m := newModelForUXTests()
+			if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
+				t.Fatalf("openEditor: %v", err)
+			}
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "save")
+		})
+
+		t.Run(sz.name+"_icon_picker", func(t *testing.T) {
+			m := newModelForUXTests()
+			m.openIconPicker()
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "accept")
+		})
+
+		t.Run(sz.name+"_install_path", func(t *testing.T) {
+			m := newModelForUXTests()
+			m.openInstallPath()
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "install/browse")
+		})
+
+		t.Run(sz.name+"_install_browse", func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			m := newModelForUXTests()
+			m.openInstallPath()
+			m.openInstallBrowse(home)
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "open/select")
+		})
+	}
+}
+
+func TestNarrowTerminal_InstallNavigationStillWorks(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	sizes := []struct{ width, height int }{{40, 12}, {60, 16}}
+	for _, sz := range sizes {
+		m := newModelForUXTests()
+		_, _ = m.Update(tea.WindowSizeMsg{Width: sz.width, Height: sz.height})
+
+		m.openInstallPath()
+		_, _ = m.updateInstallPath(tea.KeyMsg{Type: tea.KeyEnter})
+		if m.screen != screenInstallBrowse {
+			t.Fatalf("screen = %v, want install browse", m.screen)
+		}
+
+		_, _ = m.updateInstallBrowse(tea.KeyMsg{Type: tea.KeyEsc})
+		if m.screen != screenInstallPath {
+			t.Fatalf("screen = %v, want install path", m.screen)
+		}
+	}
+}
+
+func assertScreenViewAtSize(t *testing.T, m *Model, width, height int, wantToken string) {
+	t.Helper()
+	_, _ = m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("View panicked at %dx%d: %v", width, height, r)
+		}
+	}()
+
+	v := m.View()
+	if strings.TrimSpace(v) == "" {
+		t.Fatalf("View returned empty output at %dx%d", width, height)
+	}
+	if !strings.Contains(v, wantToken) {
+		t.Fatalf("View at %dx%d missing token %q:\n%s", width, height, wantToken, v)
+	}
+}
