@@ -30,6 +30,8 @@ List:
 - `enter` open selected entry
 - `/` filter by name or ID
 - `q` / `esc` quit
+- `ctrl+k` open command palette
+- `ctrl+tab` / `ctrl+shift+tab` move focus between header/body/footer regions
 - `?` toggle expanded help
 
 Editor:
@@ -37,9 +39,16 @@ Editor:
 - `ctrl+i` open icon picker
 - `ctrl+n` browse for custom icon (starts at `$HOME`)
 - `ctrl+s` save
+- `ctrl+k` open command palette
+- `ctrl+tab` / `ctrl+shift+tab` move focus between header/body/footer regions
 - `left` / `right` cycle GPU mode
 - `esc` discard and go back
 - `?` toggle expanded help
+
+Footer actions:
+- when footer region is focused, `tab` / `shift-tab` cycle action chips
+- `enter` executes the selected footer action
+- `esc` returns focus to the body region
 
 Install icon flow:
 - select a file in browser, then confirm/edit icon name in form

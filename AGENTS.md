@@ -20,6 +20,8 @@
   - `go test ./internal/ui -run TestSave_SystemEntryWritesUserOverride`
   - `go test ./internal/ui -run TestCtrlNOpensInstallBrowserFromHome`
   - `go test ./internal/ui -run TestUpdate_HandlesEntriesRefreshedMsg`
+  - `go test ./internal/ui -run TestRegionFocus_TraversalCyclesHeaderBodyFooter`
+  - `go test ./internal/ui -run TestFooterRegion_SaveActionParityWithKeyAndPalette`
 
 ## Lint/format behavior
 - `make lint` is intentionally strict: it fails if `gofmt -l .` returns any files, then runs `go vet ./...`.
@@ -35,6 +37,9 @@
 - NVIDIA env-prefix parsing must keep handling mixed-case var names (for `__VK_LAYER_NV_optimus`) so mode switches fully unwrap old prefixes.
 - Icon install flow is browser-first (`ctrl+n` opens browser at `$HOME`/last dir), then path+name confirmation form.
 - UI key handling is centralized via Bubble `key.Binding` maps and rendered with Bubble `help.Model`; keep bindings and help text in one source of truth.
+- Shell layout is intentionally framed into header/body/footer regions inside a stable outer frame; avoid reintroducing screen-specific layout jumps.
+- Region focus traversal uses `ctrl+tab`/`ctrl+shift+tab`; keep body-local `tab` behavior intact for form/navigation fields.
+- Footer primary bindings render as selectable chips; when footer is focused, `tab`/`shift+tab` cycle chips and `enter` executes the selected action via existing command paths.
 - Custom tea messages used by commands must always have matching `Update` handlers (notably list-refresh after save).
 - Keep `internal/ui` split by screen concerns (`screen_list.go`, `screen_editor.go`, `screen_icon_picker.go`, `screen_install.go`) rather than growing a single monolith file.
 
