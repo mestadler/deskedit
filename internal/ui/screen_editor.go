@@ -240,14 +240,10 @@ func (m *Model) viewEditor() string {
 		rows = append(rows, row)
 	}
 
-	status := renderStatus(m.err, m.status)
-
 	return strings.Join([]string{
 		title,
 		pathLine,
 		strings.Join(rows, "\n"),
-		m.help.View(m.keys.Editor),
-		status,
 	}, "\n")
 }
 

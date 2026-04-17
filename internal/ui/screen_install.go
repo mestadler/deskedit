@@ -70,15 +70,11 @@ func (m *Model) viewInstallPath() string {
 		nameRow = activeBorder.Render(nameRow)
 	}
 
-	status := renderStatus(m.err, m.status)
-
 	return strings.Join([]string{
 		title,
 		pathRow,
 		nameRow,
 		hintStyle.Render("PNGs >256px are resized; smaller PNGs keep their size. SVGs go to scalable/."),
-		m.help.View(m.keys.InstallPath),
-		status,
 	}, "\n")
 }
 

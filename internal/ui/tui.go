@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,6 +18,15 @@ import (
 )
 
 var (
+	chromeTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("230")).
+				Background(lipgloss.Color("62")).
+				Padding(0, 1)
+	commandBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252")).
+			Background(lipgloss.Color("236")).
+			Padding(0, 1)
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("205")).
@@ -233,20 +243,112 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) View() string {
+	var body string
 	switch m.screen {
 	case screenList:
-		return m.list.View() + "\n" + m.help.View(m.keys.List)
+		body = m.list.View()
 	case screenEditor:
-		return m.viewEditor()
+		body = m.viewEditor()
 	case screenIconPicker:
-		return m.iconPicker.View() + "\n" + m.help.View(m.keys.IconPicker)
+		body = m.iconPicker.View()
 	case screenInstallPath:
-		return m.viewInstallPath()
+		body = m.viewInstallPath()
 	case screenInstallBrowse:
-		title := titleStyle.Render("Browse: " + m.install.browserCWD)
-		return title + "\n" + m.install.browser.View() + "\n" + m.help.View(m.keys.InstallBrowse)
+		body = m.install.browser.View()
+	default:
+		body = ""
 	}
-	return ""
+
+	return m.renderLayout(m.screenTitle(), body, m.expandedHelp(), m.primaryCommandBar())
+}
+
+func (m *Model) renderLayout(title, body, expandedHelp, commandBar string) string {
+	status := renderStatus(m.err, m.status)
+	parts := []string{
+		chromeTitleStyle.Render(title),
+		body,
+	}
+	if expandedHelp != "" {
+		parts = append(parts, expandedHelp)
+	}
+	if status != "" {
+		parts = append(parts, status)
+	}
+	parts = append(parts, commandBarStyle.Render(commandBar))
+	return strings.Join(parts, "\n")
+}
+
+func (m *Model) screenTitle() string {
+	switch m.screen {
+	case screenList:
+		return "deskedit  -  Desktop Entries"
+	case screenEditor:
+		if m.current != nil {
+			return "deskedit  -  Editing " + activePathForView(m.current.Path)
+		}
+		return "deskedit  -  Editor"
+	case screenIconPicker:
+		return "deskedit  -  Pick Icon"
+	case screenInstallPath:
+		return "deskedit  -  Install Icon"
+	case screenInstallBrowse:
+		return "deskedit  -  Browse Files: " + m.install.browserCWD
+	default:
+		return "deskedit"
+	}
+}
+
+func (m *Model) expandedHelp() string {
+	if !m.help.ShowAll {
+		return ""
+	}
+	h := m.help
+	h.ShowAll = true
+
+	switch m.screen {
+	case screenList:
+		return h.View(m.keys.List)
+	case screenEditor:
+		return h.View(m.keys.Editor)
+	case screenIconPicker:
+		return h.View(m.keys.IconPicker)
+	case screenInstallPath:
+		return h.View(m.keys.InstallPath)
+	case screenInstallBrowse:
+		return h.View(m.keys.InstallBrowse)
+	default:
+		return ""
+	}
+}
+
+func (m *Model) primaryCommandBar() string {
+	bindings := m.primaryBindings()
+	parts := make([]string, 0, len(bindings))
+	for _, b := range bindings {
+		h := b.Help()
+		if strings.TrimSpace(h.Key) == "" || strings.TrimSpace(h.Desc) == "" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s %s", h.Key, h.Desc))
+	}
+	return strings.Join(parts, "   ")
+}
+
+func (m *Model) primaryBindings() []key.Binding {
+	switch m.screen {
+	case screenList:
+		return m.keys.List.ShortHelp()
+	case screenEditor:
+		return m.keys.Editor.ShortHelp()
+	case screenIconPicker:
+		return m.keys.IconPicker.ShortHelp()
+	case screenInstallPath:
+		return m.keys.InstallPath.ShortHelp()
+	case screenInstallBrowse:
+		return m.keys.InstallBrowse.ShortHelp()
+	default:
+		return nil
+	}
 }
 
 func (m *Model) setEntries(entries []desktop.Entry) {
