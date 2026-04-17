@@ -121,7 +121,7 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 	for _, sz := range sizes {
 		t.Run(sz.name+"_list", func(t *testing.T) {
 			m := newModelForUXTests()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "edit")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter edit")
 		})
 
 		t.Run(sz.name+"_editor", func(t *testing.T) {
@@ -131,19 +131,19 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 			if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
 				t.Fatalf("openEditor: %v", err)
 			}
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "save")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "ctrl+s save")
 		})
 
 		t.Run(sz.name+"_icon_picker", func(t *testing.T) {
 			m := newModelForUXTests()
 			m.openIconPicker()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "accept")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter accept")
 		})
 
 		t.Run(sz.name+"_install_path", func(t *testing.T) {
 			m := newModelForUXTests()
 			m.openInstallPath()
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "install/browse")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter install/browse")
 		})
 
 		t.Run(sz.name+"_install_browse", func(t *testing.T) {
@@ -152,9 +152,62 @@ func TestNarrowTerminal_ViewStaysUsableAcrossScreens(t *testing.T) {
 			m := newModelForUXTests()
 			m.openInstallPath()
 			m.openInstallBrowse(home)
-			assertScreenViewAtSize(t, m, sz.width, sz.height, "open/select")
+			assertScreenViewAtSize(t, m, sz.width, sz.height, "deskedit", "ctrl+k commands", "enter open/select")
 		})
 	}
+}
+
+func TestLayoutChrome_TitleBarVisibleAcrossScreens(t *testing.T) {
+	path := t.TempDir() + "/applications/app.desktop"
+	writeDesktopEntryFile(t, path, "[Desktop Entry]\nName=App\nExec=app\n")
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	m := newModelForUXTests()
+	m.setEntries([]desktop.Entry{{Path: path, ID: "app.desktop", Name: "App", Source: desktop.SourceUser}})
+	m.openIconPicker()
+	assertViewContains(t, m, "deskedit")
+
+	if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
+		t.Fatalf("openEditor: %v", err)
+	}
+	assertViewContains(t, m, "deskedit")
+
+	m.openInstallPath()
+	assertViewContains(t, m, "deskedit")
+
+	m.openInstallBrowse(home)
+	assertViewContains(t, m, "deskedit")
+
+	m.screen = screenList
+	assertViewContains(t, m, "deskedit")
+}
+
+func TestPrimaryCommandBar_ShowsExpectedBindingsByScreen(t *testing.T) {
+	path := t.TempDir() + "/applications/app.desktop"
+	writeDesktopEntryFile(t, path, "[Desktop Entry]\nName=App\nExec=app\n")
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	m := newModelForUXTests()
+	m.screen = screenList
+	assertViewContains(t, m, "ctrl+k commands", "enter edit")
+
+	if err := m.openEditor(desktop.Entry{Path: path, ID: "app.desktop", Source: desktop.SourceUser}); err != nil {
+		t.Fatalf("openEditor: %v", err)
+	}
+	assertViewContains(t, m, "ctrl+k commands", "ctrl+s save")
+
+	m.openIconPicker()
+	assertViewContains(t, m, "ctrl+k commands", "enter accept")
+
+	m.openInstallPath()
+	assertViewContains(t, m, "ctrl+k commands", "enter install/browse")
+
+	m.openInstallBrowse(home)
+	assertViewContains(t, m, "ctrl+k commands", "enter open/select")
 }
 
 func TestNarrowTerminal_InstallNavigationStillWorks(t *testing.T) {
@@ -179,7 +232,7 @@ func TestNarrowTerminal_InstallNavigationStillWorks(t *testing.T) {
 	}
 }
 
-func assertScreenViewAtSize(t *testing.T, m *Model, width, height int, wantToken string) {
+func assertScreenViewAtSize(t *testing.T, m *Model, width, height int, wantTokens ...string) {
 	t.Helper()
 	_, _ = m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 
@@ -189,11 +242,23 @@ func assertScreenViewAtSize(t *testing.T, m *Model, width, height int, wantToken
 		}
 	}()
 
-	v := m.View()
+	v := normalizeHelp(m.View())
 	if strings.TrimSpace(v) == "" {
 		t.Fatalf("View returned empty output at %dx%d", width, height)
 	}
-	if !strings.Contains(v, wantToken) {
-		t.Fatalf("View at %dx%d missing token %q:\n%s", width, height, wantToken, v)
+	for _, wantToken := range wantTokens {
+		if !strings.Contains(v, wantToken) {
+			t.Fatalf("View at %dx%d missing token %q:\n%s", width, height, wantToken, v)
+		}
+	}
+}
+
+func assertViewContains(t *testing.T, m *Model, wantTokens ...string) {
+	t.Helper()
+	v := normalizeHelp(m.View())
+	for _, token := range wantTokens {
+		if !strings.Contains(v, token) {
+			t.Fatalf("view missing token %q:\n%s", token, v)
+		}
 	}
 }

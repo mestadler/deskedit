@@ -64,6 +64,7 @@ const (
 	screenIconPicker
 	screenInstallPath
 	screenInstallBrowse
+	screenCommandPalette
 )
 
 type listItem struct{ desktop.Entry }
@@ -88,6 +89,16 @@ type iconItem string
 func (i iconItem) Title() string       { return string(i) }
 func (i iconItem) Description() string { return "" }
 func (i iconItem) FilterValue() string { return string(i) }
+
+type commandItem struct {
+	id   string
+	name string
+	desc string
+}
+
+func (i commandItem) Title() string       { return i.name }
+func (i commandItem) Description() string { return i.desc }
+func (i commandItem) FilterValue() string { return i.name + " " + i.desc }
 
 type field int
 
@@ -123,6 +134,9 @@ type Model struct {
 	iconPicker list.Model
 
 	install installModel
+
+	commandPalette list.Model
+	paletteReturn  screen
 
 	keys keyMaps
 	help help.Model
@@ -216,6 +230,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if keyMatches(msg, m.keys.Global.Quit) {
 			return m, tea.Quit
 		}
+		if keyMatches(msg, m.keys.Global.CommandPalette) {
+			if m.screen == screenCommandPalette {
+				m.screen = m.paletteReturn
+				return m, nil
+			}
+			m.openCommandPalette(m.screen)
+			return m, nil
+		}
 		switch m.screen {
 		case screenList:
 			return m.updateList(msg)
@@ -227,6 +249,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateInstallPath(msg)
 		case screenInstallBrowse:
 			return m.updateInstallBrowse(msg)
+		case screenCommandPalette:
+			return m.updateCommandPalette(msg)
 		}
 	}
 
@@ -238,6 +262,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.iconPicker, cmd = m.iconPicker.Update(msg)
 	case screenInstallBrowse:
 		m.install.browser, cmd = m.install.browser.Update(msg)
+	case screenCommandPalette:
+		m.commandPalette, cmd = m.commandPalette.Update(msg)
 	}
 	return m, cmd
 }
@@ -255,6 +281,8 @@ func (m *Model) View() string {
 		body = m.viewInstallPath()
 	case screenInstallBrowse:
 		body = m.install.browser.View()
+	case screenCommandPalette:
+		body = m.commandPalette.View()
 	default:
 		body = ""
 	}
@@ -293,6 +321,8 @@ func (m *Model) screenTitle() string {
 		return "deskedit  -  Install Icon"
 	case screenInstallBrowse:
 		return "deskedit  -  Browse Files: " + m.install.browserCWD
+	case screenCommandPalette:
+		return "deskedit  -  Command Palette"
 	default:
 		return "deskedit"
 	}
@@ -316,6 +346,8 @@ func (m *Model) expandedHelp() string {
 		return h.View(m.keys.InstallPath)
 	case screenInstallBrowse:
 		return h.View(m.keys.InstallBrowse)
+	case screenCommandPalette:
+		return h.View(m.keys.Palette)
 	default:
 		return ""
 	}
@@ -335,19 +367,143 @@ func (m *Model) primaryCommandBar() string {
 }
 
 func (m *Model) primaryBindings() []key.Binding {
+	global := []key.Binding{m.keys.Global.CommandPalette}
 	switch m.screen {
 	case screenList:
-		return m.keys.List.ShortHelp()
+		return append(global, m.keys.List.ShortHelp()...)
 	case screenEditor:
-		return m.keys.Editor.ShortHelp()
+		return append(global, m.keys.Editor.ShortHelp()...)
 	case screenIconPicker:
-		return m.keys.IconPicker.ShortHelp()
+		return append(global, m.keys.IconPicker.ShortHelp()...)
 	case screenInstallPath:
-		return m.keys.InstallPath.ShortHelp()
+		return append(global, m.keys.InstallPath.ShortHelp()...)
 	case screenInstallBrowse:
-		return m.keys.InstallBrowse.ShortHelp()
+		return append(global, m.keys.InstallBrowse.ShortHelp()...)
+	case screenCommandPalette:
+		return m.keys.Palette.ShortHelp()
 	default:
-		return nil
+		return global
+	}
+}
+
+func (m *Model) openCommandPalette(from screen) {
+	items := m.commandItemsFor(from)
+	listItems := make([]list.Item, len(items))
+	for i, it := range items {
+		listItems[i] = it
+	}
+
+	delegate := list.NewDefaultDelegate()
+	delegate.SetSpacing(0)
+	delegate.ShowDescription = true
+
+	l := list.New(listItems, delegate, m.width-2, m.height-6)
+	if m.width <= 0 || m.height <= 0 {
+		l.SetSize(80, 20)
+	}
+	l.Title = "Commands"
+	l.SetFilteringEnabled(true)
+	m.commandPalette = l
+	m.paletteReturn = from
+	m.screen = screenCommandPalette
+	m.err = nil
+}
+
+func (m *Model) commandItemsFor(sc screen) []commandItem {
+	switch sc {
+	case screenList:
+		return []commandItem{{id: "list_edit", name: "Edit selected entry", desc: "Open selected desktop entry"}, {id: "list_filter", name: "Filter entries", desc: "Start filtering entry list"}, {id: "list_quit", name: "Quit", desc: "Exit deskedit"}, {id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	case screenEditor:
+		return []commandItem{{id: "editor_save", name: "Save changes", desc: "Write desktop entry"}, {id: "editor_cancel", name: "Discard and return", desc: "Return to list without saving"}, {id: "editor_next", name: "Next field", desc: "Move focus to next field"}, {id: "editor_prev", name: "Previous field", desc: "Move focus to previous field"}, {id: "editor_icon_picker", name: "Open icon picker", desc: "Pick icon from available names"}, {id: "editor_install_icon", name: "Browse/install icon", desc: "Install icon from file"}, {id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	case screenIconPicker:
+		return []commandItem{{id: "picker_accept", name: "Accept selected icon", desc: "Use highlighted icon"}, {id: "picker_cancel", name: "Cancel", desc: "Return to editor"}, {id: "picker_filter", name: "Filter icons", desc: "Search icon names"}, {id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	case screenInstallPath:
+		return []commandItem{{id: "install_submit", name: "Install icon", desc: "Install or browse when source empty"}, {id: "install_browse", name: "Browse files", desc: "Open file browser"}, {id: "install_next", name: "Next field", desc: "Move focus to next field"}, {id: "install_prev", name: "Previous field", desc: "Move focus to previous field"}, {id: "install_cancel", name: "Cancel", desc: "Return to editor"}, {id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	case screenInstallBrowse:
+		return []commandItem{{id: "browse_open", name: "Open/select", desc: "Open directory or select file"}, {id: "browse_back", name: "Back to form", desc: "Return to install form"}, {id: "browse_filter", name: "Filter files", desc: "Search files"}, {id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	default:
+		return []commandItem{{id: "help_toggle", name: "Toggle expanded help", desc: "Show/hide full help"}}
+	}
+}
+
+func (m *Model) updateCommandPalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.toggleHelpIfMatched(msg, m.keys.Palette.ToggleHelp) {
+		return m, nil
+	}
+
+	if m.commandPalette.FilterState() == list.Filtering {
+		var cmd tea.Cmd
+		m.commandPalette, cmd = m.commandPalette.Update(msg)
+		return m, cmd
+	}
+
+	switch {
+	case keyMatches(msg, m.keys.Palette.Cancel):
+		m.screen = m.paletteReturn
+		return m, nil
+	case keyMatches(msg, m.keys.Palette.Accept):
+		it, ok := m.commandPalette.SelectedItem().(commandItem)
+		if !ok {
+			m.screen = m.paletteReturn
+			return m, nil
+		}
+		return m.executeCommand(it.id, m.paletteReturn)
+	}
+
+	var cmd tea.Cmd
+	m.commandPalette, cmd = m.commandPalette.Update(msg)
+	return m, cmd
+}
+
+func (m *Model) executeCommand(id string, target screen) (tea.Model, tea.Cmd) {
+	m.screen = target
+
+	switch id {
+	case "help_toggle":
+		m.help.ShowAll = !m.help.ShowAll
+		return m, nil
+	case "list_edit":
+		return m.updateList(tea.KeyMsg{Type: tea.KeyEnter})
+	case "list_filter":
+		return m.updateList(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	case "list_quit":
+		return m, tea.Quit
+	case "editor_save":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyCtrlS})
+	case "editor_cancel":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyEsc})
+	case "editor_next":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyTab})
+	case "editor_prev":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyShiftTab})
+	case "editor_icon_picker":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyCtrlI})
+	case "editor_install_icon":
+		return m.updateEditor(tea.KeyMsg{Type: tea.KeyCtrlN})
+	case "picker_accept":
+		return m.updateIconPicker(tea.KeyMsg{Type: tea.KeyEnter})
+	case "picker_cancel":
+		return m.updateIconPicker(tea.KeyMsg{Type: tea.KeyEsc})
+	case "picker_filter":
+		return m.updateIconPicker(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	case "install_submit":
+		return m.updateInstallPath(tea.KeyMsg{Type: tea.KeyEnter})
+	case "install_browse":
+		return m.updateInstallPath(tea.KeyMsg{Type: tea.KeyCtrlB})
+	case "install_next":
+		return m.updateInstallPath(tea.KeyMsg{Type: tea.KeyTab})
+	case "install_prev":
+		return m.updateInstallPath(tea.KeyMsg{Type: tea.KeyShiftTab})
+	case "install_cancel":
+		return m.updateInstallPath(tea.KeyMsg{Type: tea.KeyEsc})
+	case "browse_open":
+		return m.updateInstallBrowse(tea.KeyMsg{Type: tea.KeyEnter})
+	case "browse_back":
+		return m.updateInstallBrowse(tea.KeyMsg{Type: tea.KeyEsc})
+	case "browse_filter":
+		return m.updateInstallBrowse(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	default:
+		return m, nil
 	}
 }
 
